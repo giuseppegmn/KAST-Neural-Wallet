@@ -20,12 +20,12 @@ export default function App() {
         Powered by Pyth Network Oracle
       </p>
       
-      {isLoading && <p style={{textAlign: "center", color: "#00d4ff"}}>Carregando...</p>}
+      {isLoading && <p style={{textAlign: "center", color: "#00d4ff"}}>Loading...</p>}
       
       {error && (
         <div style={{ backgroundColor: "#ff444420", border: "1px solid #ff4444", padding: "20px", borderRadius: "8px", marginBottom: "20px", textAlign: "center" }}>
-          <p style={{ color: "#ff4444" }}>⚠️ Erro: {error}</p>
-          <button onClick={refresh} style={{ marginTop: "10px", padding: "10px 20px", backgroundColor: "#ff4444", color: "white", border: "none", borderRadius: "5px", cursor: "pointer" }}>Tentar Novamente</button>
+          <p style={{ color: "#ff4444" }}>⚠️ Error: {error}</p>
+          <button onClick={refresh} style={{ marginTop: "10px", padding: "10px 20px", backgroundColor: "#ff4444", color: "white", border: "none", borderRadius: "5px", cursor: "pointer" }}>Try Again</button>
         </div>
       )}
       
@@ -45,7 +45,7 @@ export default function App() {
                   {p.symbol}
                 </span>
                 <span style={{ fontSize: "14px", color: "#666", marginTop: "5px" }}>
-                  Confiança: ±{(p.relativeUncertainty * 100).toFixed(2)}%
+                  Confidence: ±{(p.relativeUncertainty * 100).toFixed(2)}%
                 </span>
               </div>
               
@@ -54,7 +54,7 @@ export default function App() {
                   ${p.price?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                 </div>
                 <div style={{ fontSize: "12px", color: "#444", marginTop: "5px" }}>
-                  {p.lastUpdated || "Agora"}
+                  {p.lastUpdated || "Now"}
                 </div>
               </div>
             </div>
@@ -71,12 +71,12 @@ export default function App() {
             cursor: "pointer",
             fontWeight: "bold",
             fontSize: "18px"
-          }}>🔄 Atualizar Preços</button>
+          }}>🔄 Update Prices</button>
         </div>
       )}
       
       <p style={{ textAlign: "center", marginTop: "30px", fontSize: "12px", color: "#333" }}>
-        Dados fornecidos por Pyth Network • Atualização automática a cada 30s
+        Data provided by Pyth Network • Auto-refresh every 30s
       </p>
     </div>
   );
