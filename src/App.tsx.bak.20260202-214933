@@ -1,0 +1,150 @@
+﻿/**
+ * KAST Neural Wallet - Risk-Aware Decision Intelligence
+ */
+
+import { useState, useMemo } from 'react';
+import { Header } from '@/components/layout';
+import { 
+  Button, Card, CardContent, CardHeader, CardTitle,
+  Toggle, Label, Select, SelectContent,
+  SelectItem, SelectTrigger, SelectValue
+} from '@/components/ui';
+import { RiskCertificate, ForecastCard, StatsCard, AllocationCard } from '@/components/dashboard';
+import { useMarketData } from '@/hooks/useMarketData';
+import { useForecast } from '@/hooks/useForecast';
+import { useDecision } from '@/hooks/useDecision';
+import { 
+  calculateRiskMetrics, forecastCashflow,
+  getAssetStats, optimizeAllocation 
+} from '@/lib/analytics';
+import type { SupportedToken, CashflowEvent } from '@/lib/types';
+import { DEMO_PORTFOLIO } from '@/lib/constants';
+
+function App() {
+  const [selectedToken, setSelectedToken] = useState<SupportedToken>('BTC');
+  const [useSyntheticData, setUseSyntheticData] = useState(false);
+
+  const { prices, isLoading: pricesLoading, refresh } = useMarketData({
+    tokens: ['BTC', 'ETH', 'SOL', 'USDC', 'USDT'],
+    useSyntheticData,
+    refreshInterval: 30000,
+  });
+
+  const selectedPriceData = useMemo(
+    () => prices.find(p => p.symbol === selectedToken),
+    [prices, selectedToken]
+  );
+
+  const positionValue = useMemo(() => {
+    const pos = DEMO_PORTFOLIO.positions.find(p => p.symbol === selectedToken);
+    return pos?.value || 0;
+  }, [selectedToken]);
+
+  const usdcBalance = useMemo(() => {
+    const pos = DEMO_PORTFOLIO.positions.find(p => p.symbol === 'USDC');
+    return pos?.value || 0;
+  }, []);
+
+  const { forecast, generate: generateForecast } = useForecast({
+    symbol: selectedToken,
+    horizon: 7,
+    model: 'ensemble',
+  });
+
+  const riskMetrics = useMemo(() => {
+    if (!selectedPriceData) return null;
+    return calculateRiskMetrics(
+      selectedToken,
+      positionValue,
+      selectedPriceData.relativeUncertainty
+    );
+  }, [selectedToken, selectedPriceData, positionValue]);
+
+  const { decision, generateDecision } = useDecision({
+    symbol: selectedToken,
+    positionValue,
+  });
+
+  const handleGenerateDecision = () => {
+    if (forecast && riskMetrics && selectedPriceData) {
+      generateDecision(forecast, riskMetrics, selectedPriceData);
+    }
+  };
+
+  const assetStats = getAssetStats(selectedToken);
+
+  const cashflowEvents: CashflowEvent[] = useMemo(() => {
+    const now = Date.now();
+    const day = 86400000;
+    const events: CashflowEvent[] = [];
+
+    for (let d = 0; d < 30; d += 15)
+      events.push({ timestamp: now - d * day, amount: 3500, category: 'income', description: 'Salary' });
+
+    for (let d = 0; d < 30; d++)
+      events.push({ timestamp: now - d * day, amount: -110, category: 'spend', description: 'Daily spending' });
+
+    return events;
+  }, []);
+
+  const cashflowForecast = useMemo(
+    () => forecastCashflow(usdcBalance, cashflowEvents, 7, 30, 0.95),
+    [usdcBalance, cashflowEvents]
+  );
+
+  const allocationPlan = useMemo(() => {
+    return optimizeAllocation(DEMO_PORTFOLIO, prices, riskMetrics);
+  }, [prices, riskMetrics]);
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <Header />
+      <main className="max-w-6xl mx-auto p-6 space-y-6">
+
+        <Card>
+          <CardHeader><CardTitle>Controls</CardTitle></CardHeader>
+          <CardContent className="flex gap-4 flex-wrap">
+            <Label>Token</Label>
+            <Select value={selectedToken} onValueChange={v => setSelectedToken(v as SupportedToken)}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="BTC">BTC</SelectItem>
+                <SelectItem value="ETH">ETH</SelectItem>
+                <SelectItem value="SOL">SOL</SelectItem>
+                <SelectItem value="USDC">USDC</SelectItem>
+                <SelectItem value="USDT">USDT</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Toggle pressed={useSyntheticData} onPressedChange={setUseSyntheticData} />
+            <Button onClick={refresh}>Refresh</Button>
+            <Button onClick={generateForecast}>Forecast</Button>
+            <Button onClick={handleGenerateDecision}>Decision</Button>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <StatsCard symbol={selectedToken} stats={assetStats} priceData={selectedPriceData} />
+          <ForecastCard symbol={selectedToken} forecast={forecast} />
+          <RiskCertificate symbol={selectedToken} decision={decision} riskMetrics={riskMetrics} priceData={selectedPriceData} />
+        </div>
+
+        <Card>
+          <CardHeader><CardTitle>Cashflow</CardTitle></CardHeader>
+          <CardContent>
+            <pre className="text-xs bg-muted p-3 rounded">
+              {JSON.stringify(cashflowForecast, null, 2)}
+            </pre>
+          </CardContent>
+        </Card>
+
+        <AllocationCard plan={allocationPlan} />
+
+      </main>
+    </div>
+  );
+}
+
+export default App;

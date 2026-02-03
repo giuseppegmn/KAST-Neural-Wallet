@@ -1,0 +1,115 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --kast-black: #0a0a0a;
+  --kast-dark: #111111;
+  --kast-card: #1a1a1a;
+  --kast-border: #2a2a2a;
+  --kast-teal: #00d4aa;
+  --kast-teal-glow: rgba(0, 212, 170, 0.3);
+  --kast-purple: #8b5cf6;
+  --kast-gold: #f59e0b;
+  --kast-red: #ef4444;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--kast-black);
+  color: white;
+  overflow-x: hidden;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--kast-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--kast-teal);
+  border-radius: 3px;
+}
+
+/* Glow Effects */
+.glow-teal {
+  box-shadow: 0 0 20px var(--kast-teal-glow),
+              0 0 40px rgba(0, 212, 170, 0.1),
+              0 0 60px rgba(0, 212, 170, 0.05);
+}
+
+.glow-text {
+  text-shadow: 0 0 10px var(--kast-teal-glow),
+               0 0 20px rgba(0, 212, 170, 0.2);
+}
+
+/* Gradient Backgrounds */
+.gradient-mesh {
+  background: 
+    radial-gradient(ellipse at 20% 20%, rgba(0, 212, 170, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(245, 158, 11, 0.05) 0%, transparent 70%);
+}
+
+/* Glass Effect */
+.glass {
+  background: rgba(26, 26, 26, 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Card Hover */
+.card-hover {
+  transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4),
+              0 0 30px var(--kast-teal-glow);
+  border-color: var(--kast-teal);
+}
+
+/* Gradient Text */
+.gradient-text {
+  background: linear-gradient(135deg, var(--kast-teal), var(--kast-purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Grid Pattern */
+.grid-pattern {
+  background-image: 
+    linear-gradient(rgba(0, 212, 170, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 212, 170, 0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .gradient-mesh {
+    background: 
+      radial-gradient(ellipse at 50% 20%, rgba(0, 212, 170, 0.1) 0%, transparent 60%);
+  }
+}

@@ -1,0 +1,565 @@
+﻿/**
+ * KAST Neural Wallet - Risk-Aware Decision Intelligence
+ * 
+ * A personal financial operating system that uses real market data
+ * and statistical models to forecast, simulate and explain future financial states.
+ * 
+ * Core Principles:
+ * - Deterministic, explainable calculations
+ * - Statistically grounded forecasts
+ * - Human-in-the-loop for all decisions
+ * - Full transparency via Risk Certificates
+ */
+
+import { useState, useMemo } from 'react';
+import { Header } from '@/components/layout';
+import { 
+  Button, 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle,
+  TokenSelector,
+  Alert,
+} from '@/components/ui';
+import { 
+  MarketDataCard, 
+  ForecastCard, 
+  DecisionCard,
+  CashflowCard,
+  AllocationCard,
+} from '@/components/cards';
+import { useMarketData, useForecast, useDecision } from '@/lib/hooks';
+import { calculateRiskMetrics } from '@/lib/riskMetrics';
+import { forecastCashflow, type CashflowEvent } from '@/lib/cashflowEngine';
+import { optimizeAllocation } from '@/lib/portfolioOptimizer';
+import type { SupportedToken } from '@/types/MarketData';
+import { 
+  TrendingUp, 
+  Shield, 
+  Activity, 
+  Wallet,
+  Brain,
+  FileText,
+} from 'lucide-react';
+
+// Demo portfolio
+const DEMO_PORTFOLIO = {
+  totalValue: 24847.32,
+  positions: [
+    { symbol: 'BTC', value: 6750, amount: 0.15 },
+    { symbol: 'ETH', value: 7000, amount: 2.5 },
+    { symbol: 'SOL', value: 1000, amount: 50 },
+    { symbol: 'USDC', value: 10097.32, amount: 10097.32 },
+  ],
+
+};
+function App() {
+  // Token selection
+  const [selectedToken, setSelectedToken] = useState<SupportedToken>('BTC');
+
+  // Data mode: real Pyth vs synthetic fallback
+  const [useSyntheticData, setUseSyntheticData] = useState(false);
+  
+  // Use synthetic data for demo (no API dependency)
+  const { 
+    prices,
+    error: pricesError,
+    getAssetStats,
+  } = useMarketData({
+    tokens: ['BTC', 'ETH', 'SOL', 'USDC', 'USDT'],
+    useSyntheticData,
+    refreshInterval: 30000,
+  });
+
+  // Get selected token data
+  const selectedPriceData = useMemo(() => 
+    prices.find(p => p.symbol === selectedToken),
+    [prices, selectedToken]
+
+  );
+  // Get position value for selected token
+  const positionValue = useMemo(() => {
+    const position = DEMO_PORTFOLIO.positions.find(p => p.symbol === selectedToken);
+    return position?.value || 0;
+  }, []);
+
+  // Demo cash balance (USDC) used for cashflow forecasting
+  const usdcBalance = useMemo(() => {
+    const position = DEMO_PORTFOLIO.positions.find(p => p.symbol === 'USDC');
+    return position?.value || 0;
+
+
+  const {
+    forecast,
+    isGenerating: forecastGenerating,
+    generate: generateForecast,
+  } = useForecast({
+    symbol: selectedToken,
+    horizon: 7,
+    model: 'ensemble',
+  });
+
+  // Calculate risk metrics
+  const riskMetrics = useMemo(() => {
+    if (!selectedPriceData) return null;
+    return calculateRiskMetrics(selectedToken, positionValue, selectedPriceData.relativeUncertainty);
+  }, [selectedToken, selectedPriceData, positionValue]);
+
+  // SOL risk metrics for allocation optimization (uses SOL history + uncertainty)
+  const solPriceData = useMemo(() => prices.find(p => p.symbol === 'SOL'), [prices]);
+  const solPositionValue = useMemo(() => {
+    const position = DEMO_PORTFOLIO.positions.find(p => p.symbol === 'SOL');
+    return position?.value || 0;
+  const solRiskMetrics = useMemo(() => {
+    if (!solPriceData) return null;
+    return calculateRiskMetrics('SOL', solPositionValue, solPriceData.relativeUncertainty);
+  }, [solPriceData, solPositionValue]);
+
+  const allocationPlan = useMemo(() => {
+    if (!solRiskMetrics || !solPriceData) return null;
+    return optimizeAllocation({
+      totalUSD: DEMO_PORTFOLIO.totalValue,
+      stableEarnApy: 0.06,
+      solStakingApy: 0.07,
+      solRisk: solRiskMetrics,
+      maxVar95LossPct: 0.10,
+      maxUncertainty: 0.015,
+      currentRelativeUncertainty: solPriceData.relativeUncertainty,
+      horizonDays: 7,
+      stepPct: 5,
+    });
+  }, [solRiskMetrics, solPriceData]);
+
+  // Decision hook
+  const {
+    recommendation,
+    certificate,
+    formattedCertificate,
+    status,
+    isGenerating: decisionGenerating,
+    generate: generateDecision,
+    approve,
+    reject,
+  } = useDecision({
+    symbol: selectedToken,
+    positionValue,
+  });
+
+  // Generate decision when forecast and risk are ready
+  const handleGenerateDecision = () => {
+    if (forecast && riskMetrics && selectedPriceData) {
+      generateDecision(forecast, riskMetrics, selectedPriceData);
+    }
+
+  // Combined generate action
+  const handleGenerateAll = () => {
+    generateForecast();
+
+  // Stats for selected token
+  const assetStats = getAssetStats(selectedToken);
+
+  // Demo cashflow events (deterministic)
+  const cashflowEvents: CashflowEvent[] = useMemo(() => {
+    const events: CashflowEvent[] = [];
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+
+    // Income: salary every 15 days (+3500)
+    for (let d = 0; d < 30; d += 15) {
+      const ts = now - d * day;
+      events.push({ timestamp: ts, amount: 3500, category: 'income', description: 'Salary' });
+    }
+
+    // Expenses: daily average -110 with small deterministic variation
+    for (let d = 0; d < 30; d++) {
+      const ts = now - d * day;
+      const drift = ((d % 7) - 3) * 7; // weekly seasonality
+      events.push({ timestamp: ts, amount: -110 + drift, category: 'spend', description: 'Daily spending' });
+    }
+
+    // Bills: weekly -420
+    for (let d = 0; d < 30; d += 7) {
+      const ts = now - d * day;
+      events.push({ timestamp: ts, amount: -420, category: 'bills', description: 'Recurring bills' });
+    }
+
+    return events;
+  }, []);// Use USDC position as "cash" starting balance
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] text-white">
+      <Header />
+      
+      <main className="pt-24 pb-12 px-6">
+        <div className="max-w-7xl mx-auto">
+          {/* Hero Section */}
+          <div className="mb-12">
+            <div className="flex items-center gap-3 mb-4">
+              <Brain className="w-8 h-8 text-[#00d4aa]" />
+              <h1 className="text-4xl md:text-5xl font-bold">
+                Neural Wallet
+              </h1>
+            </div>
+            <p className="text-xl text-gray-400 max-w-3xl">
+              A personal financial operating system using real market data and statistical models 
+              to forecast, simulate, and explain future financial states.
+            </p>
+            <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
+              <span className="flex items-center gap-1">
+                <Activity className="w-4 h-4" />
+                Statistical Forecasting
+              </span>
+              <span className="flex items-center gap-1">
+                <Shield className="w-4 h-4" />
+                Risk Metrics
+              </span>
+              <span className="flex items-center gap-1">
+                <FileText className="w-4 h-4" />
+                Risk Certificates
+              </span>
+            </div>
+          </div>
+
+          {/* Error Display */}
+          {pricesError && (
+            <Alert variant="error" title="Data Error" className="mb-6">
+              {pricesError.message}
+              <div className="mt-3 flex gap-3">
+                <Button variant="secondary" size="sm" onClick={() => setUseSyntheticData(true)}>
+                  Switch to synthetic demo data
+                </Button>
+                {useSyntheticData && (
+                  <Button variant="secondary" size="sm" onClick={() => setUseSyntheticData(false)}>
+                    Try real Pyth data again
+                  </Button>
+                )}
+              </div>
+            </Alert>
+          )}
+
+          {/* Dashboard Grid */}
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Left Column - Market Data */}
+            <div className="space-y-6">
+              {/* Portfolio Overview */}
+              <Card variant="glass">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <Wallet className="w-5 h-5 text-[#00d4aa]" />
+                    <CardTitle>Portfolio Overview</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Total Value</p>
+                      <p className="text-3xl font-bold">
+                        ${DEMO_PORTFOLIO.totalValue.toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      {DEMO_PORTFOLIO.positions.map(pos => (
+                        <div 
+                          key={pos.symbol}
+                          className={`flex items-center justify-between py-2 px-3 rounded-lg cursor-pointer transition-colors ${
+                            selectedToken === pos.symbol 
+                              ? 'bg-[#00d4aa]/10 border border-[#00d4aa]/30' 
+                              : 'hover:bg-white/5'
+                          }`}
+                          onClick={() => setSelectedToken(pos.symbol as SupportedToken)}
+                        >
+                          <span className="font-medium">{pos.symbol}</span>
+                          <span className="text-gray-400">
+                            ${pos.value.toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Token Selector */}
+              <Card variant="glass">
+                <CardHeader>
+                  <CardTitle>Analyze Asset</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <TokenSelector
+                    value={selectedToken}
+                    onChange={setSelectedToken}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Selected Asset Stats */}
+              {assetStats && (
+                <Card variant="glass">
+                  <CardHeader>
+                    <CardTitle>{selectedToken} Statistics</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Mean Price</span>
+                        <span className="font-medium">
+                          ${assetStats.mean.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Volatility (Ann.)</span>
+                        <span className="font-medium">
+                          {(assetStats.annualizedVolatility * 100).toFixed(2)}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Max Drawdown</span>
+                        <span className="font-medium text-red-400">
+                          {(assetStats.maxDrawdown * 100).toFixed(2)}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Current Drawdown</span>
+                        <span className={`font-medium ${
+                          assetStats.currentDrawdown > 0.1 ? 'text-red-400' : 'text-[#00d4aa]'
+                        }`}>
+                          {(assetStats.currentDrawdown * 100).toFixed(2)}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Total Return</span>
+                        <span className={`font-medium ${
+                          assetStats.totalReturn >= 0 ? 'text-[#00d4aa]' : 'text-red-400'
+                        }`}>
+                          {(assetStats.totalReturn * 100).toFixed(2)}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Data Points</span>
+                        <span className="font-medium">{assetStats.count}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Price Feed */}
+              {selectedPriceData && (
+                <MarketDataCard data={selectedPriceData} />
+              )}
+            </div>
+
+            {/* Middle Column - Forecast & Decision */}
+            <div className="space-y-6">
+              {/* Generate Button */}
+              <Card variant="glass">
+                <CardContent className="py-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold mb-1">Analysis Engine</h3>
+                      <p className="text-sm text-gray-500">
+                        Generate statistical forecast and risk assessment
+                      </p>
+                    </div>
+                    <Button
+                      onClick={handleGenerateAll}
+                      isLoading={forecastGenerating}
+                      leftIcon={<TrendingUp className="w-4 h-4" />}
+                    >
+                      Generate
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Forecast */}
+              <ForecastCard
+                forecast={forecast}
+                isGenerating={forecastGenerating}
+                onGenerate={generateForecast}
+              />
+
+              {/* Decision */}
+              {forecast && riskMetrics && (
+                <DecisionCard
+                  recommendation={recommendation}
+                  certificate={certificate}
+                  formattedCertificate={formattedCertificate}
+                  status={status}
+                  isGenerating={decisionGenerating}
+                  onApprove={approve}
+                  onReject={reject}
+                />
+              )}
+
+              {/* Generate Decision Button */}
+              {forecast && riskMetrics && !recommendation && (
+                <Button
+                  onClick={handleGenerateDecision}
+                  variant="secondary"
+                  className="w-full"
+                  leftIcon={<Shield className="w-4 h-4" />}
+                >
+                  Generate Decision Recommendation
+                </Button>
+              )}
+            </div>
+
+            {/* Right Column - Risk Analysis */}
+            <div className="space-y-6">
+              {/* User Cashflow (behavior model) */}
+              <CashflowCard forecast={cashflowForecast} />
+
+              {/* Portfolio decision: simple allocation optimization */}
+              <AllocationCard plan={allocationPlan} />
+
+              {/* Risk Metrics */}
+              {riskMetrics && (
+                <Card variant="glass">
+                  <CardHeader>
+                    <div className="flex items-center gap-3">
+                      <Shield className="w-5 h-5 text-[#8b5cf6]" />
+                      <CardTitle>Risk Metrics</CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-[#0a0a0a] rounded-lg p-3">
+                          <p className="text-xs text-gray-500">VaR 95%</p>
+                          <p className="font-semibold">
+                            {(riskMetrics.var95 * 100).toFixed(2)}%
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            ${riskMetrics.atRiskAmount.toFixed(0)}
+                          </p>
+                        </div>
+                        <div className="bg-[#0a0a0a] rounded-lg p-3">
+                          <p className="text-xs text-gray-500">CVaR 95%</p>
+                          <p className="font-semibold">
+                            {(riskMetrics.cvar95 * 100).toFixed(2)}%
+                          </p>
+                        </div>
+                        <div className="bg-[#0a0a0a] rounded-lg p-3">
+                          <p className="text-xs text-gray-500">Volatility</p>
+                          <p className="font-semibold">
+                            {(riskMetrics.volatility * 100).toFixed(2)}%
+                          </p>
+                        </div>
+                        <div className="bg-[#0a0a0a] rounded-lg p-3">
+                          <p className="text-xs text-gray-500">Max Drawdown</p>
+                          <p className="font-semibold">
+                            {(riskMetrics.maxDrawdown * 100).toFixed(2)}%
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Uncertainty */}
+                      <div className="bg-[#0a0a0a] rounded-lg p-3">
+                        <p className="text-xs text-gray-500">Relative Uncertainty</p>
+                        <p className="font-semibold">
+                          {(riskMetrics.relativeUncertainty * 100).toFixed(3)}%
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          From Pyth Network confidence interval
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Model Info */}
+              <Card variant="glass">
+                <CardHeader>
+                  <CardTitle>Forecast Models</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 text-sm">
+                    <div className="bg-[#0a0a0a] rounded-lg p-3">
+                      <p className="font-medium text-[#00d4aa]">Rolling Regression</p>
+                      <p className="text-gray-500 text-xs mt-1">
+                        P(t) = Î± + Î²t + Îµ with confidence intervals
+                      </p>
+                    </div>
+                    <div className="bg-[#0a0a0a] rounded-lg p-3">
+                      <p className="font-medium text-[#00d4aa]">Exponential Smoothing</p>
+                      <p className="text-gray-500 text-xs mt-1">
+                        Holt's linear method with trend
+                      </p>
+                    </div>
+                    <div className="bg-[#0a0a0a] rounded-lg p-3">
+                      <p className="font-medium text-[#00d4aa]">Mean Reversion</p>
+                      <p className="text-gray-500 text-xs mt-1">
+                        Ornstein-Uhlenbeck inspired
+                      </p>
+                    </div>
+                    <div className="bg-[#0a0a0a] rounded-lg p-3 border border-[#00d4aa]/30">
+                      <p className="font-medium text-[#00d4aa]">Ensemble</p>
+                      <p className="text-gray-500 text-xs mt-1">
+                        Weighted average (weights âˆ 1/RMSEÂ²)
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* How It Works */}
+              <Card variant="glass">
+                <CardHeader>
+                  <CardTitle>How It Works</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 text-sm text-gray-400">
+                    <p>
+                      <span className="text-[#00d4aa]">1.</span>{' '}
+                      Historical price data collected (50-100 points)
+                    </p>
+                    <p>
+                      <span className="text-[#00d4aa]">2.</span>{' '}
+                      Multiple statistical models generate forecasts
+                    </p>
+                    <p>
+                      <span className="text-[#00d4aa]">3.</span>{' '}
+                      Risk metrics calculated (VaR, CVaR, volatility)
+                    </p>
+                    <p>
+                      <span className="text-[#00d4aa]">4.</span>{' '}
+                      Decision engine combines forecast + risk
+                    </p>
+                    <p>
+                      <span className="text-[#00d4aa]">5.</span>{' '}
+                      Risk certificate generated for audit
+                    </p>
+                    <p>
+                      <span className="text-[#00d4aa]">6.</span>{' '}
+                      Human approval required for all actions
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <footer className="mt-16 pt-8 border-t border-white/5">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <p className="text-sm text-gray-500">
+                KAST Neural Wallet â€” Statistical Decision Intelligence
+              </p>
+              <div className="flex items-center gap-4 text-sm text-gray-500">
+                <span>Deterministic Models</span>
+                <span>â€¢</span>
+                <span>Explainable Output</span>
+                <span>â€¢</span>
+                <span>Human-in-the-loop</span>
+              </div>
+            </div>
+          </footer>
+        </div>
+      </main>
+    </div>
+}
+
+export default App;
+
